@@ -1,0 +1,8 @@
+---
+cmn:
+  labels:
+    navigeo_short_description: GPS追踪器
+    navigeo_long_description: Navigeo是GPS跟踪系统，其数据可在Ekylibre使用。
+  integrations:
+    navigeo:
+      access_token: "访问令牌"

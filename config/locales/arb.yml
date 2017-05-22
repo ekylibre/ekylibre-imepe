@@ -1,0 +1,9 @@
+---
+arb:
+  labels:
+    navigeo_short_description: "جهاز تعقب جغرافي"
+    navigeo_long_description: Navigeo هو نظام تتبع نظام تحديد المواقع التي يمكن استخدامها
+      في Ekylibre البيانات.
+  integrations:
+    navigeo:
+      access_token: "رمز وصول"

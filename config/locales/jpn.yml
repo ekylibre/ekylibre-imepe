@@ -1,0 +1,8 @@
+---
+jpn:
+  labels:
+    navigeo_short_description: GPSトラッカー
+    navigeo_long_description: Navigeoは、そのデータEkylibreで使用することができますGPS追跡システムです。
+  integrations:
+    navigeo:
+      access_token: "アクセストークン"

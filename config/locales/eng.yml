@@ -1,0 +1,8 @@
+eng:
+  labels:
+    navigeo_short_description: GPS tracker
+    navigeo_long_description:  Navigeo is GPS tracking system whose data can be used in Ekylibre.
+    navigeo_url: http://www.helileo.com/Navigeo.html
+  integrations:
+    navigeo:
+      access_token: Access token

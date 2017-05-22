@@ -1,0 +1,10 @@
+---
+por:
+  labels:
+    navigeo_short_description: Rastreador GPS
+    navigeo_long_description: Navigeo é sistema de rastreamento GPS, cujos dados podem
+      ser usados ​​em Ekylibre.
+    navigeo_url: http://www.helileo.com/Navigeo.html
+  integrations:
+    navigeo:
+      access_token: Token de acesso

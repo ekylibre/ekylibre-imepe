@@ -1,0 +1,3 @@
+= CapTrap
+
+Plugin to allow integration of the data returned by a CapTrap brand trap into Ekylibre.
