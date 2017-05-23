@@ -3,7 +3,7 @@ module Imepe
     auth :check do
       parameter :siret_number
     end
-    calls :get_devices, :get_device, :set_location_hook, :unset_hooks, :get_hooks, :debug
+    calls :debug
 
     def debug
       integration = fetch

@@ -1,16 +1,6 @@
 # coding: utf-8
 author 'Jérémie Bonal <jbonal@ekylibre.com>'
 
-name 'helileo'
-version '0.1.2'
-app '>= 2.5.0'
-
-add_routes do
-  namespace :ext do
-    namespace :helileo do
-      namespace :v1 do
-        resource :location, only: [:create]
-      end
-    end
-  end
-end
+name 'imepe'
+version '0.1.0'
+app '>= 2.44.0'

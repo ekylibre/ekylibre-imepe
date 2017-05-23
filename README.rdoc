@@ -1,3 +1,7 @@
-= CapTrap
+= IMEPE
 
-Plugin to allow integration of the data returned by a CapTrap brand trap into Ekylibre.
+This plugin allows the integration of IMEPE-related data into Ekylibre.
+Currently intended to be capable of fetching:
+  - CultivableZones
+  - LandParcels
+  - Activities
