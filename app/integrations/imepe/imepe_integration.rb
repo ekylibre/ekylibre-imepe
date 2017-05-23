@@ -29,6 +29,9 @@ module Imepe
     end
 
     def get_format(*args, **kwargs, &block)
+      major_version = VERSION.split('.').to_i
+      format = FORMAT.downcase.to_sym
+      Rails.logger.warn 'IMEPE API v1 only supports the XML format !' if major_version <= 1 && format != :xml
       send(:"get_#{FORMAT}", *args, **kwargs, &block)
     end
   end
