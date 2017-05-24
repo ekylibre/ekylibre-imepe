@@ -4,6 +4,7 @@ module Imepe
       parameter :siret
     end
     calls :debug
+    calls :get_exploitation_ids
 
     SERVER = "www.rhone-alpes.test.mesparcelles.fr"
     VERSION = '1.4'
@@ -27,13 +28,17 @@ module Imepe
       end
     end
 
-    def get_exploitations
+    # Plural because "whose sirets we have" even tho for now we only have one
+    # siret per integration rn.
+    def get_exploitation_ids
       integration = fetch
       get_format(url(:siga_web, :exploitations), headers) do |r|
         r.success do
-          sirets = Nokogiri::XML(r.body).css('exploitations exploitation identification siret').map(&:inner_text)
-          there = sirets.include? integration.parameters['siret']
-          there || r.error
+          siret = integration.parameters['siret']
+          body = Nokogiri::XML(r.body)
+          exploitations = body.css('exploitations exploitation identification')
+          exploitations = exploitations.select { |exp| exp.css('siret').inner_text == siret }
+          exploitations.map { |exp| exp.css('identifiant').inner_text }
         end
       end
     end
