@@ -22,7 +22,7 @@ module Imepe
         r.success do
           sirets = Nokogiri::XML(r.body).css('exploitations exploitation identification siret').map(&:inner_text)
           there = sirets.include? integration.parameters['siret']
-          there || error
+          there || r.error
         end
       end
     end
@@ -55,7 +55,6 @@ module Imepe
       major_version = VERSION.split('.').first.to_i
       format = FORMAT.downcase.to_sym
       Rails.logger.warn 'IMEPE API v1 only supports the XML format !' if major_version <= 1 && format != :xml
-      byebug
       send(:"get_#{FORMAT}", *args, &block)
     end
   end
