@@ -27,6 +27,17 @@ module Imepe
       end
     end
 
+    def get_exploitations
+      integration = fetch
+      get_format(url(:siga_web, :exploitations), headers) do |r|
+        r.success do
+          sirets = Nokogiri::XML(r.body).css('exploitations exploitation identification siret').map(&:inner_text)
+          there = sirets.include? integration.parameters['siret']
+          there || r.error
+        end
+      end
+    end
+
     private
 
     def url(application, service, server: SERVER, version: VERSION, format: FORMAT)
