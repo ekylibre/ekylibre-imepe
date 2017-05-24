@@ -3,8 +3,8 @@ module Imepe
     queue_as :default
 
     def perform
-      Imepe::ImepeIntegration.get_exploitations.execute do |c|
-        c.success do |devices|
+      Imepe::ImepeIntegration.get_exploitation_ids.execute do |c|
+        c.success do |exploit_ids|
         end
       end
     end
