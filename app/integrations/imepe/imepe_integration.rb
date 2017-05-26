@@ -43,9 +43,38 @@ module Imepe
       end
     end
 
+    def get_cultivable_zone_data(id)
+      get_format(url(:siga_web, [:exploitations, id, :millesime, Date.current.year, :ilots])) do |r|
+        r.success do
+          # TODO: Parse data
+        end
+      end
+    end
+
+    def get_cultivable_zone_geom(id)
+      get_format(url(:siga_web, [:ilots, id, :geom])) do |r|
+        r.success do
+          # TODO: Parse data
+        end
+      end
+    end
+
+    def get_land_parcels_data(id)
+      get_format(url(:siga_web, [:ilots, id, :parcelles])) do |r|
+        r.success do
+          # TODO: Parse data
+        end
+      end
+    end
+
+    def get_land_parcels_geom(id)
+      # TODO: Implement once spec is there.
+    end
+
     private
 
     def url(application, service, server: SERVER, version: VERSION, format: FORMAT)
+      service = service.join('/') if service.respond_to? :join
       "http://#{server}/apiService/#{version}/#{application}/#{service}.#{format}"
     end
 
