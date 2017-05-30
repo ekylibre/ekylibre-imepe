@@ -55,12 +55,11 @@ module MesParcelles
               end
             end
 
-            create_activity!(parcel, plant_infos, perennial)
-
             lp_id = parcel['identifiant']
             MesParcelles::MesParcellesIntegration.get_land_parcels_geom(lp_id, farm, parcel['millesime']).execute do |c|
               c.success do |geom|
-                create_land_parcel!(parcel, geom)
+                activity = create_activity!(parcel, plant_infos, perennial)
+                create_land_parcel!(parcel, geom, activity, zone)
               end
             end
           end
@@ -70,33 +69,39 @@ module MesParcelles
 
     def create_cultivable_zone!(data, geom)
       return nil unless geom.present? && data['nom']
-      CultivableZone.create!(
-        name: data['nom'],
-        work_number: data["numero"],
-        shape: geom,
-        codes: {
-          mes_parcelles: {
-            identification_number: data['identifiant'],
-            farm_id: data['idExploitation']
+      CultivableZone.where("codes #>> '{mes_parcelles,identification_number}' = ?", data['identifiant']).first ||
+        CultivableZone.create!(
+          name: data['nom'],
+          work_number: data["numero"],
+          shape: geom,
+          codes: {
+            mes_parcelles: {
+              identification_number: data['identifiant'],
+              farm_id: data['idExploitation']
+            }
           }
-        }
-      )
+        )
     end
 
-    def create_land_parcel!(data, geom)
-      LandParcel.create!(
-        initial_shape: geom,
-        variant: ProductNatureVariant.find_or_import!(:land_parcel).first,
+    def create_land_parcel!(data, geom, activity, zone_id)
+      name = data['nom']
+      plant_label = data['culture']['libelle']
+      year = data['millesime']
+
+      prod = ActivityProduction.find_or_create_by!( activity: activity, campaign: Campaign.of(year), cultivable_zone: CultivableZone.where("codes #>> '{mes_parcelles,identification_number}' = ?", zone_id).first, support_shape: geom.to_ewkt)
+
+
+      prod.support.update!(
         work_number: data['numero'],
-        name: data['nom'],
+        name: "#{prod.support.name} - #{name}",
         codes: {
           mes_parcelles: {
             identification_number: data['identifiant'],
             cultivable_zone_id: data['idilot'],
-            year: data['millesime'],
+            year: year,
             plant: {
               identification_number: data['culture']['identifiant'],
-              label: data['culture']['libelle']
+              label: plant_label
             },
             # variety: {
             #   identification_number: data['varietes']['variete']['identification'],
@@ -105,27 +110,48 @@ module MesParcelles
           }
         }
       )
+       prod.support
     end
 
     def create_activity!(parcel_info, plant_info, perennial)
       plant = plant_info.find { |pl| pl['identifiant'] == parcel_info['culture']['identifiant'] }
       activity_name = parcel_info['culture']['libelle']
-      similar = Activity.where("name ILIKE ?", activity_name + '%')
-      activity_name += " - #{similar.count}" if similar.any?
+      year = parcel_info['millesime']
+      pac_code = plant['codeculturepac']
 
-      Activity.create!(
-        production_cycle: perennial ? :perennial : :annual,
-        # campaign: parcel_info['millesime']
-        # TODO: connect the activity to the camaign
-        name: activity_name,
-        family: :plant_farming,
-        codes: {
-          mes_parcelles: {
-            pac_variety_code: plant['codeculturepac']
+      if File.directory?("#{CAP.abaci_dir}/v#{year}")
+        variety = CAP::TelepacFile.find({ main_crop_code: pac_code}.to_struct, year).first
+      end
+      variety = CAP::TelepacFile.find({ main_crop_code: pac_code}.to_struct).first unless variety
+      variety &&= variety.variety
+
+      activity = Activity.where(
+        "codes #>> '{mes_parcelles,pac_variety_code}' = ? AND name = ?",
+        pac_code,
+        activity_name
+      ).first
+
+      unless activity
+        similar = Activity.where("name ILIKE ?", activity_name + '%')
+        activity_name += " - #{similar.count}" if similar.any?
+
+        activity = Activity.create!(
+          production_cycle: perennial ? :perennial : :annual,
+          name: activity_name,
+          family: :plant_farming,
+          cultivation_variety: variety,
+          codes: {
+            mes_parcelles: {
+              pac_variety_code: pac_code
+            }
           }
-        }
-        # TODO: Use plant_info['codeculturepac'] to fill in variety too.
-      )
+        )
+      end
+
+      activity.budgets.find_or_create_by!(campaign: Campaign.of(parcel_info['millesime']))
+      activity
+
+      # TODO: Use plant_info['codeculturepac'] to fill in variety too.
     end
   end
 end
