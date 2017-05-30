@@ -5,6 +5,12 @@ module Imepe
     end
     calls :debug
     calls :get_exploitation_ids
+    calls :get_cultivable_zone_data
+    calls :get_cultivable_zone_geom
+    calls :get_land_parcels_data
+    calls :get_land_parcels_geom
+    calls :get_plant_list
+    calls :check_if_perennial
 
     SERVER = "www.rhone-alpes.test.mesparcelles.fr"
     VERSION = '1.4'
@@ -44,31 +50,111 @@ module Imepe
     end
 
     def get_cultivable_zone_data(id)
-      get_format(url(:siga_web, [:exploitations, id, :millesime, Date.current.year, :ilots])) do |r|
+      get_format(url(:siga_web, [:exploitations, id, :millesime, Date.current.year, :ilots]), headers) do |r|
         r.success do
-          # TODO: Parse data
+          body = Nokogiri::XML(r.body)
+          zones = body.css('ilots ilot')
+          zones.map { |zone| Hash.from_xml(zone.to_s)['ilot'] }
         end
       end
     end
 
     def get_cultivable_zone_geom(id)
-      get_format(url(:siga_web, [:ilots, id, :geom])) do |r|
+      get_format(url(:siga_web, [:ilots, id, :geom]), headers) do |r|
         r.success do
-          # TODO: Parse data
+          body = Nokogiri::XML(r.body)
+          if body.css('geom_ilot geom *').empty?
+            []
+          else
+            geometry = body.xpath('.//gml:Polygon').first
+            geometry.tap do |geom|
+              # 'A B C D' => 'A,B C,D'
+              pos_list = geom.xpath('.//gml:posList').first
+              coordinates = pos_list
+                .content
+                .split(' ')
+                .each_slice(2)
+                .map { |coords| coords.join(',') }
+                .join(' ')
+
+              pos_list.content = coordinates
+            end
+
+            parsable_gml = geometry.to_xml.to_s
+                                          .gsub('exterior', 'outerBoundaryIs')
+                                          .gsub(' srsDimension="2"', "")
+                                          .gsub('posList', 'coordinates')
+                                          .squish
+
+            ::Charta.from_gml(parsable_gml, 2154).transform(:WGS84).multi_polygon
+          end
         end
       end
     end
 
     def get_land_parcels_data(id)
-      get_format(url(:siga_web, [:ilots, id, :parcelles])) do |r|
+      get_format(url(:siga_web, [:ilots, id, :parcelles]), headers) do |r|
         r.success do
-          # TODO: Parse data
+          body = Nokogiri::XML(r.body)
+          parcels = body.css('parcelles parcelle')
+          parcels.map do |parcel|
+            Hash.from_xml(parcel.to_s)['parcelle']
+          end
         end
       end
     end
 
-    def get_land_parcels_geom(id)
-      # TODO: Implement once spec is there.
+    def get_land_parcels_geom(id, farm_id, year)
+      get_format(url(:siga_web, [:exploitations, farm_id, :millesime, year, :ilots, :geom]), headers) do |r|
+        r.success do
+          body = Nokogiri::XML(r.body)
+          matching_parcel = body.xpath("//geom_ilots/geom_ilot/parcelles/geom_parcelle/identifiant[text() = '#{id}']/../geom")
+          if matching_parcel.empty?
+            []
+          else
+            matching_parcel = matching_parcel.xpath('.//gml:Polygon').first
+            matching_parcel.tap do |geom|
+              # 'A B C D' => 'A,B C,D'
+              pos_list = geom.xpath('.//gml:posList').first
+              coordinates = pos_list
+                .content
+                .split(' ')
+                .each_slice(2)
+                .map { |coords| coords.join(',') }
+                .join(' ')
+
+              pos_list.content = coordinates
+            end
+
+            parsable_gml = matching_parcel.to_xml.to_s
+                                          .gsub('exterior', 'outerBoundaryIs')
+                                          .gsub(' srsDimension="2"', "")
+                                          .gsub('posList', 'coordinates')
+                                          .squish
+
+            ::Charta.from_gml(parsable_gml, 2154).transform(:WGS84).multi_polygon
+          end
+        end
+      end
+    end
+
+    def get_plant_list
+      get_format(url(:siga_web, :cultures), headers) do |r|
+        r.success do
+          plants = Nokogiri::XML(r.body)
+          plants.css('cultures culture').map do |plant|
+            Hash.from_xml(plant.to_s)['culture'].slice('identifiant', 'libelle', 'codeculturepac')
+          end
+        end
+      end
+    end
+
+    def check_if_perennial(parcel)
+      get_format(url(:siga_web, [:parcelles, parcel["identifiant"], :occupationssol, parcel["culture"]["identifiant"]]), headers) do |r|
+        r.success do
+          Nokogiri::XML(r.body).css('occupationssol perenne').inner_text
+        end
+      end
     end
 
     private
