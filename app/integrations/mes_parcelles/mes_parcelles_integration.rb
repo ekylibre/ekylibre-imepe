@@ -1,7 +1,7 @@
-module Imepe
-  class ImepeIntegration < ActionIntegration::Base
+module MesParcelles
+  class MesParcellesIntegration < ActionIntegration::Base
     auth :check do
-      parameter :siret
+      parameter :siret_number
     end
     calls :debug
     calls :get_exploitation_ids
@@ -28,7 +28,7 @@ module Imepe
       get_format(url(:siga_web, :exploitations), headers) do |r|
         r.success do
           sirets = Nokogiri::XML(r.body).css('exploitations exploitation identification siret').map(&:inner_text)
-          there = sirets.include? integration.parameters['siret']
+          there = sirets.include? integration.parameters['siret_number']
           there || r.error
         end
       end
@@ -40,10 +40,16 @@ module Imepe
       integration = fetch
       get_format(url(:siga_web, :exploitations), headers) do |r|
         r.success do
-          siret = integration.parameters['siret']
+          siret = integration.parameters['siret_number']
           body = Nokogiri::XML(r.body)
           exploitations = body.css('exploitations exploitation identification')
-          exploitations = exploitations.select { |exp| exp.css('siret').inner_text == siret }
+          exploitations = exploitations.select do |exp|
+            nil unless exp.css('siret').inner_text == siret
+            integration.parameters[siret] = exp.css('identifiant').inner_text
+            integration.save!
+            true
+          end
+
           exploitations.map { |exp| exp.css('identifiant').inner_text }
         end
       end

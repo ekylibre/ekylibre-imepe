@@ -1,8 +1,8 @@
----
-cmn:
+eng:
   labels:
-    navigeo_short_description: GPS追踪器
-    navigeo_long_description: Navigeo是GPS跟踪系统，其数据可在Ekylibre使用。
+    mes_parcelles_short_description: Online solution for farmers
+    mes_parcelles_long_description:  MesParcelles is an online platform that aims to support and help farmers along.
+    mes_parcelles_url: http://mp.mes-parcelles.fr
   integrations:
-    navigeo:
-      access_token: "访问令牌"
+    mes_parcelles:
+     siret_number: SIRET Number

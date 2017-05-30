@@ -1,10 +1,8 @@
----
-por:
+eng:
   labels:
-    navigeo_short_description: Rastreador GPS
-    navigeo_long_description: Navigeo é sistema de rastreamento GPS, cujos dados podem
-      ser usados ​​em Ekylibre.
-    navigeo_url: http://www.helileo.com/Navigeo.html
+    mes_parcelles_short_description: Online solution for farmers
+    mes_parcelles_long_description:  MesParcelles is an online platform that aims to support and help farmers along.
+    mes_parcelles_url: http://mp.mes-parcelles.fr
   integrations:
-    navigeo:
-      access_token: Token de acesso
+    mes_parcelles:
+     siret_number: SIRET Number

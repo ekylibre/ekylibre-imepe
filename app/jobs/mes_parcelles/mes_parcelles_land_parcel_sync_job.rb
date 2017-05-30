@@ -1,16 +1,16 @@
-module Imepe
-  class ImepeDataFetchingJob < ActiveJob::Base
+module MesParcelles
+  class MesParcellesLandParcelSyncJob < ActiveJob::Base
     queue_as :default
 
     def perform
-      Imepe::ImepeIntegration.get_exploitation_ids.execute do |c|
+      MesParcelles::MesParcellesIntegration.get_exploitation_ids.execute do |c|
         c.success do |exploit_ids|
           zones        = exploit_ids.map { |id| create_cultivable_zone_from_id(id) }.flatten.compact
           land_parcels = zones
             .map do |z|
               create_land_parcels_from_zone(
-                z.codes['imepe']['identification_number'],
-                z.codes['imepe']['farm_id']
+                z.codes['mes_parcelles']['identification_number'],
+                z.codes['mes_parcelles']['farm_id']
               )
             end
             .flatten
@@ -22,11 +22,11 @@ module Imepe
     private
 
     def create_cultivable_zone_from_id(id)
-      Imepe::ImepeIntegration.get_cultivable_zone_data(id).execute do |call|
+      MesParcelles::MesParcellesIntegration.get_cultivable_zone_data(id).execute do |call|
         call.success do |cultivable_zones|
           cultivable_zones.map do |cz|
             cz_id = cz['identifiant']
-            Imepe::ImepeIntegration.get_cultivable_zone_geom(cz_id).execute do |c|
+            MesParcelles::MesParcellesIntegration.get_cultivable_zone_geom(cz_id).execute do |c|
               c.success do |geom|
                 create_cultivable_zone!(cz, geom)
               end
@@ -37,19 +37,19 @@ module Imepe
     end
 
     def create_land_parcels_from_zone(zone, farm)
-      Imepe::ImepeIntegration.get_land_parcels_data(zone).execute do |call|
+      MesParcelles::MesParcellesIntegration.get_land_parcels_data(zone).execute do |call|
         call.success do |parcels|
           plant_infos = []
           perennial = false
 
-          Imepe::ImepeIntegration.get_plant_list.execute do |cl|
+          MesParcelles::MesParcellesIntegration.get_plant_list.execute do |cl|
             cl.success do |info|
               plant_infos = info
             end
           end
 
           parcels.map do |parcel|
-            Imepe::ImepeIntegration.check_if_perennial(parcel).execute do |cl|
+            MesParcelles::MesParcellesIntegration.check_if_perennial(parcel).execute do |cl|
               cl.success do |status|
                 perennial = status
               end
@@ -58,7 +58,7 @@ module Imepe
             create_activity!(parcel, plant_infos, perennial)
 
             lp_id = parcel['identifiant']
-            Imepe::ImepeIntegration.get_land_parcels_geom(lp_id, farm, parcel['millesime']).execute do |c|
+            MesParcelles::MesParcellesIntegration.get_land_parcels_geom(lp_id, farm, parcel['millesime']).execute do |c|
               c.success do |geom|
                 create_land_parcel!(parcel, geom)
               end
@@ -75,7 +75,7 @@ module Imepe
         work_number: data["numero"],
         shape: geom,
         codes: {
-          imepe: {
+          mes_parcelles: {
             identification_number: data['identifiant'],
             farm_id: data['idExploitation']
           }
@@ -90,7 +90,7 @@ module Imepe
         work_number: data['numero'],
         name: data['nom'],
         codes: {
-          imepe: {
+          mes_parcelles: {
             identification_number: data['identifiant'],
             cultivable_zone_id: data['idilot'],
             year: data['millesime'],
@@ -120,7 +120,7 @@ module Imepe
         name: activity_name,
         family: :plant_farming,
         codes: {
-          imepe: {
+          mes_parcelles: {
             pac_variety_code: plant['codeculturepac']
           }
         }

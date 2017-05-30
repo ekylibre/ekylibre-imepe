@@ -1,10 +1,9 @@
 ---
 fra:
   labels:
-    navigeo_short_description: Boîtier GPS connecté
-    navigeo_long_description: Navigeo est un boîtier GPS dont les données peuvent
-      être remontées dans Ekylibre en temps réel.
-    navigeo_url: http://www.helileo.com/Navigeo.html
+    mes_parcelles_short_description: De la sécurité à la performance
+    mes_parcelles_long_description: Une solution internet pour prendre de l’avance techniquement, économiquement et environnementalement.
+    mes_parcelles_url: http://www.mp.mes-parcelles.fr
   integrations:
-    navigeo:
-      access_token: Jeton d’accès
+    mes_parcelles:
+      siret_number: Numéro de SIRET

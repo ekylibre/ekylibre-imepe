@@ -1,9 +1,8 @@
----
-arb:
+eng:
   labels:
-    navigeo_short_description: "جهاز تعقب جغرافي"
-    navigeo_long_description: Navigeo هو نظام تتبع نظام تحديد المواقع التي يمكن استخدامها
-      في Ekylibre البيانات.
+    mes_parcelles_short_description: Online solution for farmers
+    mes_parcelles_long_description:  MesParcelles is an online platform that aims to support and help farmers along.
+    mes_parcelles_url: http://mp.mes-parcelles.fr
   integrations:
-    navigeo:
-      access_token: "رمز وصول"
+    mes_parcelles:
+     siret_number: SIRET Number
