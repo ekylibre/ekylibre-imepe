@@ -1,8 +1,8 @@
 ---
 fra:
   labels:
-    mes_parcelles_short_description: De la sécurité à la performance
-    mes_parcelles_long_description: Une solution internet pour prendre de l’avance techniquement, économiquement et environnementalement.
+    mes_parcelles_short_description: Outil en ligne d'enregistrement des pratiques agricoles
+    mes_parcelles_long_description: Connectez vous à Mes Parcelles pour importer votre parcellaire dans Ekylibre.
     mes_parcelles_url: http://www.mp.mes-parcelles.fr
   integrations:
     mes_parcelles:
