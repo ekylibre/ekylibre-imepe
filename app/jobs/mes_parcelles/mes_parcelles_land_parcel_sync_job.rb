@@ -5,6 +5,7 @@ module MesParcelles
     def perform
       MesParcelles::MesParcellesIntegration.get_exploitation_ids.execute do |c|
         c.success do |exploit_ids|
+          user_to_notify = Integration.find_by_nature('mes_parcelles').creator
           zones        = exploit_ids.map { |id| create_cultivable_zone_from_id(id) }.flatten.compact
           land_parcels = zones
             .map do |z|
@@ -14,6 +15,7 @@ module MesParcelles
               )
             end
             .flatten
+            user_to_notify.notify(:land_parcels_from_imepe_imported.tl)
           land_parcels
         end
       end
@@ -87,8 +89,19 @@ module MesParcelles
       name = data['nom']
       plant_label = data['culture']['libelle']
       year = data['millesime']
+      pac_code = activity.codes['mes_parcelles']['pac_variety_code']
+      abac = abac_info(pac_code, year)
 
-      prod = ActivityProduction.find_or_create_by!( activity: activity, campaign: Campaign.of(year), cultivable_zone: CultivableZone.where("codes #>> '{mes_parcelles,identification_number}' = ?", zone_id).first, support_shape: geom.to_ewkt)
+      support_nature = (abac && abac.support_nature) || :cultivation
+
+      prod = ActivityProduction.find_or_create_by!(
+        activity: activity,
+        campaign: Campaign.of(year),
+        cultivable_zone: CultivableZone.where("codes #>> '{mes_parcelles,identification_number}' = ?", zone_id).first,
+        support_shape: geom.to_ewkt,
+        support_nature: support_nature,
+        usage: abac && abac.usage
+      )
 
 
       prod.support.update!(
@@ -119,17 +132,13 @@ module MesParcelles
       year = parcel_info['millesime']
       pac_code = plant['codeculturepac']
 
-      if File.directory?("#{CAP.abaci_dir}/v#{year}")
-        variety = CAP::TelepacFile.find({ main_crop_code: pac_code}.to_struct, year).first
-      end
-      variety = CAP::TelepacFile.find({ main_crop_code: pac_code}.to_struct).first unless variety
-      variety &&= variety.variety
-
       activity = Activity.where(
         "codes #>> '{mes_parcelles,pac_variety_code}' = ? AND name = ?",
         pac_code,
         activity_name
       ).first
+
+      variety = abac_info(pac_code, year).variety
 
       unless activity
         similar = Activity.where("name ILIKE ?", activity_name + '%')
@@ -152,6 +161,14 @@ module MesParcelles
       activity
 
       # TODO: Use plant_info['codeculturepac'] to fill in variety too.
+    end
+
+    def abac_info(code, year = '2017')
+      if File.directory?("#{CAP.abaci_dir}/v#{year}")
+        variety = CAP::TelepacFile.find({ main_crop_code: code}.to_struct, year)
+      end
+      variety = CAP::TelepacFile.find({ main_crop_code: code}.to_struct, '2017') unless variety
+      variety && variety.first
     end
   end
 end

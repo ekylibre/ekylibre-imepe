@@ -45,8 +45,8 @@ module MesParcelles
           exploitations = body.css('exploitations exploitation identification')
           exploitations = exploitations.select do |exp|
             nil unless exp.css('siret').inner_text == siret
-            integration.parameters[siret] = exp.css('identifiant').inner_text
-            integration.save!
+            # integration.parameters[siret] = exp.css('identifiant').inner_text
+            # integration.save!(validate: false)
             true
           end
 
