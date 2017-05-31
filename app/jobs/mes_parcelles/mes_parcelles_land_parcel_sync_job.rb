@@ -15,7 +15,7 @@ module MesParcelles
               )
             end
             .flatten
-            user_to_notify.notify(:land_parcels_from_imepe_imported.tl)
+          user_to_notify.notify(:land_parcels_from_mes_parcelles_imported.tl)
           land_parcels
         end
       end
