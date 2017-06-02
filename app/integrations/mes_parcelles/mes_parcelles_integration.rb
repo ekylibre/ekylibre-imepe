@@ -1,7 +1,9 @@
 module MesParcelles
   class MesParcellesIntegration < ActionIntegration::Base
     auth :check do
-      parameter :siret_number
+      parameter :siret_number do
+        Entity.of_company.siret_number
+      end
     end
     calls :debug
     calls :get_exploitation_ids
@@ -45,8 +47,7 @@ module MesParcelles
           exploitations = body.css('exploitations exploitation identification')
           exploitations = exploitations.select do |exp|
             nil unless exp.css('siret').inner_text == siret
-            # integration.parameters[siret] = exp.css('identifiant').inner_text
-            # integration.save!(validate: false)
+            integration.update_data(siret => exp.css('identifiant').inner_text)
             true
           end
 
