@@ -1,6 +1,6 @@
 module MesParcelles
   class MesParcellesIntegration < ActionIntegration::Base
-    auth :check do
+    authenticate_with :check do
       parameter :siret_number do
         Entity.of_company.siret_number
       end
