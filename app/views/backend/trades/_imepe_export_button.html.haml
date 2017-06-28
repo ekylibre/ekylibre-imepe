@@ -1,1 +1,1 @@
-= t.mes_parcelles_extract resource, format: :xml, icon: false if resource.invoice?
+= t.mes_parcelles_extract resource, format: :xml, icon: false if resource.invoice? && Integration.active?(:mes_parcelles)
