@@ -8,3 +8,13 @@ MesParcelles::MesParcellesIntegration.run every: :day do
   MesParcelles::MesParcellesLandParcelSyncJob.perform_now
 end
 
+Ekylibre::View::Addon.add(:backend_sales_show_main_toolbar,     'backend/trades/imepe_export_button')
+Ekylibre::View::Addon.add(:backend_purchases_show_main_toolbar, 'backend/trades/imepe_export_button')
+
+class Backend::PurchasesController < Backend::BaseController
+  include MesParcelles::XMLExportAction
+end
+
+class Backend::SalesController < Backend::BaseController
+  include MesParcelles::XMLExportAction
+end

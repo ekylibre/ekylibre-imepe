@@ -4,3 +4,19 @@ author 'Jérémie Bonal <jbonal@ekylibre.com>'
 name 'imepe'
 version '0.1.0'
 app '>= 2.44.0'
+
+add_routes do
+  namespace :backend do
+    resources :purchases, only: [] do
+      member do
+        get :mes_parcelles_extract
+      end
+    end
+
+    resources :sales, only: [] do
+      member do
+        get :mes_parcelles_extract
+      end
+    end
+  end
+end

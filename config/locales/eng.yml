@@ -9,3 +9,6 @@ eng:
   integrations:
     mes_parcelles:
      siret_number: SIRET Number
+  rest:
+    actions:
+      mes_parcelles_extract: Extract for Mes Parcelles

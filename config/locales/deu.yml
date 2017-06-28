@@ -3,6 +3,12 @@ eng:
     mes_parcelles_short_description: Online solution for farmers
     mes_parcelles_long_description:  MesParcelles is an online platform that aims to support and help farmers along.
     mes_parcelles_url: http://mp.mes-parcelles.fr
+
+    land_parcels_from_mes_parcelles_import_started: Land parcel import from Mes Parcelles started.
+    land_parcels_from_mes_parcelles_imported: Land parcel import from Mes Parcelles done !
   integrations:
     mes_parcelles:
      siret_number: SIRET Number
+  rest:
+    actions:
+      mes_parcelles_extract: Extraire pour MesParcelles

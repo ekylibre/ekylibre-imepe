@@ -10,3 +10,6 @@ fra:
   integrations:
     mes_parcelles:
       siret_number: Numéro de SIRET
+  rest:
+    actions:
+      mes_parcelles_extract: Extraire pour Mes Parcelles
