@@ -1,15 +1,21 @@
 ---
 fra:
   labels:
-    mes_parcelles_short_description: Outil en ligne d'enregistrement des pratiques agricoles
-    mes_parcelles_long_description: Connectez vous à Mes Parcelles pour importer votre parcellaire dans Ekylibre.
-    mes_parcelles_url: http://www.mp.mes-parcelles.fr
-
-    land_parcels_from_mes_parcelles_import_started: Import du parcellaire Mes Parcelles en cours.
-    land_parcels_from_mes_parcelles_imported: Import du parcellaire Mes Parcelles terminé!
+    mes_parcelles_short_description: Solution de gestion des parcelles agricoles
+    mes_parcelles_long_description: Connectez-vous à Mes Parcelles pour récupérer automatiquement votre parcellaire.
+    mes_parcelles_url: https://mesparcelles.fr/
+    mes_parcelles_incoming_data_exchange: "Parcelles (Parcelles PAC) et Zones cultivables (Îlots PAC)"
+    mes_parcelles_outgoing_data_exchange: "Aucunes données sortantes"
+    land_parcels_from_mes_parcelles_import_started: Import du parcellaire MesParcelles en cours.
+    land_parcels_from_mes_parcelles_imported: Import du parcellaire MesParcelles terminé!
   integrations:
     mes_parcelles:
-      siret_number: Numéro de SIRET
+      base_url: "Région"
+      siret_number: "Numéro de SIRET"
+      harvest_year: "Année de récolte"
+  notifications:
+    messages:
+      error_during_mes_parcelles_api_call: "Une erreur est survenue pendant la synchronisation Mes Parcelles : %{error_message}"
   rest:
     actions:
       mes_parcelles_extract: Extraire pour Mes Parcelles

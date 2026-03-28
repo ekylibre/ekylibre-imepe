@@ -1,11 +1,6 @@
-# coding: utf-8
-author 'Jérémie Bonal <jbonal@ekylibre.com>'
+# frozen_string_literal: true
 
-name 'imepe'
-version '0.1.0'
-app '>= 2.44.0'
-
-add_routes do
+Rails.application.routes.draw do
   namespace :backend do
     resources :purchases, only: [] do
       member do

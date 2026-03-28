@@ -1,7 +1,0 @@
-= IMEPE
-
-This plugin allows the integration of IMEPE-related data into Ekylibre.
-Currently intended to be capable of fetching:
-  - CultivableZones
-  - LandParcels
-  - Activities

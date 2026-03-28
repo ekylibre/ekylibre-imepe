@@ -1,37 +1,46 @@
+# frozen_string_literal: true
+
 module MesParcelles
   class MesParcellesIntegration < ActionIntegration::Base
+    # base_url could be one of [normandie pdl rhones-alpes]
+    # see option on imepe.js
+    ID = 'sigaweb'
+    SECRET = nil
+    TOKEN_URL = ENV['MES_PARCELLES_TOKEN_URL']
+    APPLICATION = 'SIGA_WEB'
+    DOMAIN = ENV['MES_PARCELLES_DOMAIN']
+    LOGIN = ENV['MES_PARCELLES_LOGIN']
+    PASSWORD = ENV['MES_PARCELLES_PASSWORD']
+
     authenticate_with :check do
-      parameter :siret_number do
-        Entity.of_company.siret_number
+      parameter :base_url
+      parameter :siret_number, readonly: true do
+        Entity.of_company&.siret_number
+      end
+      parameter :harvest_year, readonly: true do
+        Campaign.current&.last.harvest_year
       end
     end
-    calls :debug
+
     calls :get_exploitation_ids
-    calls :get_cultivable_zone_data
-    calls :get_cultivable_zone_geom
-    calls :get_land_parcels_data
-    calls :get_land_parcels_geom
-    calls :get_plant_list
-    calls :check_if_perennial
-
-    SERVER = "www.rhone-alpes.test.mesparcelles.fr"
-    VERSION = '1.4'
-    FORMAT = :xml
-
-    def debug
-      # integration = fetch
-      get_format(url(:siga_web, :exploitations), headers) do |r|
-        byebug
-      end
-    end
+    calls :get_cultivable_zones_from_exploitation_id
+    calls :get_cultivable_zone_geom_from_id
+    calls :get_land_parcel_data_from_farm
+    calls :get_land_parcels_geom_from_parcel
+    calls :get_plant_list_from_farm
+    calls :check_if_perennial_from_parcel
 
     def check(integration = nil)
       integration = fetch integration
-      get_format(url(:siga_web, :exploitations), headers) do |r|
+      siret_number = integration.parameters['siret_number']
+      get_json(url(integration, 'exploitations', { application: APPLICATION, siret: siret_number }),
+               headers(integration)) do |r|
         r.success do
-          sirets = Nokogiri::XML(r.body).css('exploitations exploitation identification siret').map(&:inner_text)
-          there = sirets.include? integration.parameters['siret_number']
-          there || r.error
+          resp = JSON.parse(r.body)
+          sirets = resp['exploitations'].map do |exploitation|
+            exploitation['exploitation']['identification']['siret']
+          end
+          sirets.include? siret_number || r.error(:siret_number_not_found)
         end
       end
     end
@@ -40,160 +49,184 @@ module MesParcelles
     # siret per integration rn.
     def get_exploitation_ids
       integration = fetch
-      get_format(url(:siga_web, :exploitations), headers) do |r|
+      siret_number = integration.parameters['siret_number']
+      get_json(url(integration, 'exploitations', { application: APPLICATION, siret: siret_number }),
+               headers(integration)) do |r|
         r.success do
-          siret = integration.parameters['siret_number']
-          body = Nokogiri::XML(r.body)
-          exploitations = body.css('exploitations exploitation identification')
-          exploitations = exploitations.select do |exp|
-            nil unless exp.css('siret').inner_text == siret
-            integration.update_data(siret => exp.css('identifiant').inner_text)
-            true
+          resp = JSON.parse(r.body)
+          resp['exploitations'].map do |exploitation|
+            exploitation['exploitation']['identification']['identifiant']
           end
-
-          exploitations.map { |exp| exp.css('identifiant').inner_text }
         end
       end
     end
 
-    def get_cultivable_zone_data(id)
-      get_format(url(:siga_web, [:exploitations, id, :millesime, Date.current.year, :ilots]), headers) do |r|
+    # get ilots datas
+    def get_cultivable_zones_from_exploitation_id(exploitation_id)
+      integration = fetch
+      harvest_year = integration.parameters['harvest_year']
+      get_json(url(integration, 'ilots', { idexploitation: exploitation_id, millesime: harvest_year }),
+               headers(integration)) do |r|
         r.success do
-          body = Nokogiri::XML(r.body)
-          zones = body.css('ilots ilot')
-          zones.map { |zone| Hash.from_xml(zone.to_s)['ilot'] }
+          resp = JSON.parse(r.body)
+          resp['ilots'].map do |ilot|
+            ilot = ilot['ilot']
+            id = ilot['identifiant']
+            uuid = ilot['cleilotuuid']
+            work_number = ilot['numero']
+            town_reference_name = ilot['refNormeCommune']
+            name = ilot['nom']
+            farm_id = ilot['idExploitation']
+            { id: id, uuid: uuid, work_number: work_number, name: name, farm_id: farm_id, town_reference_name: town_reference_name}
+          end
         end
       end
     end
 
-    def get_cultivable_zone_geom(id)
-      get_format(url(:siga_web, [:ilots, id, :geom]), headers) do |r|
+    # get ilots geom
+    def get_cultivable_zone_geom_from_id(cultivable_zone_id)
+      integration = fetch
+      get_json(url(integration, "geom/ilot/#{cultivable_zone_id}"), headers(integration)) do |r|
         r.success do
-          body = Nokogiri::XML(r.body)
-          if body.css('geom_ilot geom *').empty?
-            []
+          resp = JSON.parse(r.body)
+          geom_cz = resp['geom_ilot']['geom']
+          if geom_cz.blank?
+            ''
           else
-            geometry = body.xpath('.//gml:Polygon').first
-            geometry.tap do |geom|
-              # 'A B C D' => 'A,B C,D'
-              pos_list = geom.xpath('.//gml:posList').first
-              coordinates = pos_list
-                .content
-                .split(' ')
-                .each_slice(2)
-                .map { |coords| coords.join(',') }
-                .join(' ')
-
-              pos_list.content = coordinates
-            end
-
-            parsable_gml = geometry.to_xml.to_s
-                                          .gsub('exterior', 'outerBoundaryIs')
-                                          .gsub(' srsDimension="2"', "")
-                                          .gsub('posList', 'coordinates')
-                                          .squish
-
-            ::Charta.from_gml(parsable_gml, 2154).transform(:WGS84).multi_polygon
+            geom_cz.to_json
           end
         end
       end
     end
 
-    def get_land_parcels_data(id)
-      get_format(url(:siga_web, [:ilots, id, :parcelles]), headers) do |r|
+    # get parcel datas
+    def get_land_parcel_data_from_farm(farm, idilot)
+      integration = fetch
+      harvest_year = integration.parameters['harvest_year']
+      get_json(url(integration, 'parcelles', { idexploitation: farm, millesime: harvest_year, idilot: idilot}),
+               headers(integration)) do |r|
         r.success do
-          body = Nokogiri::XML(r.body)
-          parcels = body.css('parcelles parcelle')
+          resp = JSON.parse(r.body)
+          parcels = resp['parcelles']
           parcels.map do |parcel|
-            Hash.from_xml(parcel.to_s)['parcelle']
-          end
-        end
-      end
-    end
-
-    def get_land_parcels_geom(id, farm_id, year)
-      get_format(url(:siga_web, [:exploitations, farm_id, :millesime, year, :ilots, :geom]), headers) do |r|
-        r.success do
-          body = Nokogiri::XML(r.body)
-          matching_parcel = body.xpath("//geom_ilots/geom_ilot/parcelles/geom_parcelle/identifiant[text() = '#{id}']/../geom")
-          if matching_parcel.empty?
-            []
-          else
-            matching_parcel = matching_parcel.xpath('.//gml:Polygon').first
-            matching_parcel.tap do |geom|
-              # 'A B C D' => 'A,B C,D'
-              pos_list = geom.xpath('.//gml:posList').first
-              coordinates = pos_list
-                .content
-                .split(' ')
-                .each_slice(2)
-                .map { |coords| coords.join(',') }
-                .join(' ')
-
-              pos_list.content = coordinates
+            parcel_datas = {}
+            parcel = parcel['parcelle']
+            parcel_datas['identifiant'] = parcel['identifiant']
+            parcel_datas['uuid'] = parcel['cleparcelleculturaleuuid']
+            parcel_datas['millesime'] = parcel['millesime']
+            parcel_datas['idilot'] = parcel['idilot']
+            parcel_datas['name'] = parcel['nom']
+            parcel_datas['work_number'] = parcel['numero']
+            if parcel['culture']
+              parcel_datas['plant_id'] = parcel['culture']['identifiant']
+              parcel_datas['plant_label'] = parcel['culture']['libelle']
+            else
+              parcel_datas['plant_id'] = nil
+              parcel_datas['plant_label'] = nil
             end
-
-            parsable_gml = matching_parcel.to_xml.to_s
-                                          .gsub('exterior', 'outerBoundaryIs')
-                                          .gsub(' srsDimension="2"', "")
-                                          .gsub('posList', 'coordinates')
-                                          .squish
-
-            ::Charta.from_gml(parsable_gml, 2154).transform(:WGS84).multi_polygon
+            parcel_datas
           end
+        end
+        r.error do
+          puts "API ERROR : #{JSON.parse(r.body)['error']['message']}".inspect.red
         end
       end
     end
 
-    def get_plant_list
-      get_format(url(:siga_web, :cultures), headers) do |r|
+    # get culture
+    def get_plant_list_from_farm(_farm)
+      integration = fetch
+      get_json(url(integration, 'cultures'), headers(integration)) do |r|
         r.success do
-          plants = Nokogiri::XML(r.body)
-          plants.css('cultures culture').map do |plant|
-            Hash.from_xml(plant.to_s)['culture'].slice('identifiant', 'libelle', 'codeculturepac')
+          resp = JSON.parse(r.body)
+          plants = resp['cultures']
+
+          plants.map do |plant|
+            plant_list = {}
+            plant = plant['culture']
+            plant_list['plant_name'] = plant['libelle']
+            plant_list['plant_id'] = plant['identifiant']
+            plant_list['plant_agroedi_crop_code'] = plant['libelleedi'] if plant['libelleedi']
+            plant_list['plant_agroedi_specie_code'] = plant['idespeceedi'] if plant['idespeceedi']
+            plant_list['plant_cap_crop_code'] = plant['libellerpg'] if plant['libellerpg']
+            plant_list['plant_cap_campaign'] = plant['millesimeinvaliditepac'] if plant['millesimeinvaliditepac']
+            plant_list
           end
+        end
+        r.error do
+          puts "API ERROR : #{JSON.parse(r.body)['error']['message']}".inspect.red
         end
       end
     end
 
-    def check_if_perennial(parcel)
-      get_format(url(:siga_web, [:parcelles, parcel["identifiant"], :occupationssol, parcel["culture"]["identifiant"]]), headers) do |r|
+    # check if perennial (month or year)
+    def check_if_perennial_from_parcel(parcel)
+      integration = fetch
+      get_json(url(integration, 'occupationssol', { idparcelleculturale: parcel['identifiant'] }),
+               headers(integration)) do |r|
         r.success do
-          Nokogiri::XML(r.body).css('occupationssol perenne').inner_text
+          resp = JSON.parse(r.body)
+          occupationssols = resp['occupationssol']
+          occupationssols[0]['occupationsol']['perenne']
+        end
+      end
+    end
+
+    # get parcel datas
+    def get_land_parcels_geom_from_parcel(parcel)
+      integration = fetch
+      get_json(url(integration, "geom/ilot/#{parcel['idilot']}"), headers(integration)) do |r|
+        r.success do
+          resp = JSON.parse(r.body)
+          lp = resp['geom_ilot']['parcelles'].find { |p| p['geom_parcelle']['identifiant'] == parcel['identifiant'] }
+          geom_lp = lp['geom_parcelle']['geom'] if lp
+          if geom_lp.blank? || geom_lp.nil?
+            ''
+          else
+            geom_lp.to_json
+          end
         end
       end
     end
 
     private
 
-    def url(application, service, server: SERVER, version: VERSION, format: FORMAT)
-      service = service.join('/') if service.respond_to? :join
-      "http://#{server}/apiService/#{version}/#{application}/#{service}.#{format}"
+    # url method used for all the requests
+    def url(integration, object, url_args = {})
+      base_url = integration.parameters['base_url']
+      url_string = "https://#{base_url}.#{DOMAIN}/api/#{object}"
+
+      return url_string if url_args.empty?
+
+      if url_args.is_a?(Hash)
+        url_args.each_with_index do |(key, value), index|
+          args = "#{key}=#{value}"
+          if index.zero?
+            url_string += "?#{args}"
+          else
+            url_string += "&#{args}"
+          end
+        end
+      end
+      url_string
     end
 
-    def headers
-      username = 'Ekylibre'
-      password = 'AiEcpa'
-
-      nonce = rand(2**256).to_s(36)[0..7]
-      created_at = Time.now.strftime("%Y-%m-%dT%TZ")
-
-      hashed_password = Digest::SHA256.hexdigest(password)
-      token = nonce + created_at + hashed_password
-      digest = Digest::SHA1.hexdigest(token)
-      digest = Base64.strict_encode64(digest)
-
-      {
-        "Authorization" => 'WSSE profile="UsernameToken"',
-        "X-WSSE" => "UsernameToken Username=\"#{username}\", PasswordDigest=\"#{digest}\", Nonce=\"#{nonce}\", Created=\"#{created_at}\""
-      }
+    # access token
+    def get_token(base_url)
+      client = OAuth2::Client.new(ID,
+                                  SECRET,
+                                  token_url: TOKEN_URL,
+                                  site: "https://#{base_url}.#{DOMAIN}")
+      client.password.get_token(LOGIN, PASSWORD).token
+    rescue OAuth2::Error => e
+      puts 'Something went wrong. Please check the previous informations'
     end
 
-    def get_format(*args, &block)
-      major_version = VERSION.split('.').first.to_i
-      format = FORMAT.downcase.to_sym
-      Rails.logger.warn 'IMEPE API v1 only supports the XML format !' if major_version <= 1 && format != :xml
-      send(:"get_#{FORMAT}", *args, &block)
+    # set headers params
+    def headers(integration)
+      base_url = integration.parameters['base_url']
+      access_token = get_token(base_url)
+      { authorization: "Bearer #{access_token}", accept: 'application/json' }
     end
   end
 end

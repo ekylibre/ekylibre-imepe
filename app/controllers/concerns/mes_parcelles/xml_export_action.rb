@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module MesParcelles
   module XMLExportAction
     extend ActiveSupport::Concern
